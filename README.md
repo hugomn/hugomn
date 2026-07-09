@@ -41,3 +41,4 @@ The fastest way to get my attention is a good coffee. ☕
 <br>
 
 <sub>The card above refreshes itself daily via GitHub Actions. Design inspired by <a href="https://github.com/Andrew6rant/Andrew6rant">Andrew6rant</a>.</sub>
+
