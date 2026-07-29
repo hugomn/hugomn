@@ -46,24 +46,26 @@ def follower_count():
 
 
 def repos_and_stars():
-    query = '''
-    query($login: String!, $cursor: String) {
-        user(login: $login) {
-            repositories(first: 100, after: $cursor, ownerAffiliations: [OWNER]) {
-                totalCount
-                edges { node { stargazers { totalCount } } }
-                pageInfo { endCursor hasNextPage }
-            }
-        }
-    }'''
-    repos, stars, cursor = 0, 0, None
+    """REST instead of GraphQL: since 2026-07-23 the built-in Actions token gets
+    FORBIDDEN on stargazer fields of repositories outside the workflow's repo."""
+    repos, stars, page = 0, 0, 1
+    headers = dict(HEADERS)
     while True:
-        data = graphql(query, {'login': USER_NAME, 'cursor': cursor})['user']['repositories']
-        repos = data['totalCount']
-        stars += sum(edge['node']['stargazers']['totalCount'] for edge in data['edges'])
-        if not data['pageInfo']['hasNextPage']:
+        response = requests.get(
+            f'https://api.github.com/users/{USER_NAME}/repos',
+            params={'per_page': 100, 'page': page, 'type': 'owner'},
+            headers=headers)
+        if response.status_code == 403 and headers:
+            headers = {}  # the data is public; retry without the workflow token
+            continue
+        if response.status_code != 200:
+            raise Exception(f'Repo listing failed with {response.status_code}: {response.text}')
+        batch = response.json()
+        repos += len(batch)
+        stars += sum(repo['stargazers_count'] for repo in batch)
+        if len(batch) < 100:
             return repos, stars
-        cursor = data['pageInfo']['endCursor']
+        page += 1
 
 
 def total_contributions(created):
